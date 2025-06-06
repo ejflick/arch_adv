@@ -1,0 +1,21 @@
+{
+	"folders": [
+		{
+			"path": "assets"
+		},
+		{
+			"path": "src",
+			"follow_symlinks": true
+		}
+	],
+	"settings": {
+		"tab_size": 4
+	},
+	"build_systems": [
+		{
+			"name": "Moonc && Love",
+			"working_dir": "${project_path}",
+			"shell_cmd": "buildmoon && love build"
+		}
+	]
+}
