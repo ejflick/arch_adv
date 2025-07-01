@@ -129,12 +129,12 @@ class Entity
 
     gravity: =>
         return if @jumping
-        
-        ax, ay = @move 0, 1
-        if ax == @x and ay == @y
+
+        bx, by = @x, @y
+        @move 0, 1
+
+        if @x == bx and @y == by
             @onGround = true
-        else
-            false
 
     checkOnGround: =>
         expectedGroundY = @y + @h + 1
