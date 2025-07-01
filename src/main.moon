@@ -4,8 +4,6 @@ WIDTH = 200
 HEIGHT = 160
 SCALE = 4
 
-WORLD = bump.newWorld!
-
 class Input
     new: =>
         @down = {}
@@ -61,7 +59,8 @@ TILE_MAPPING = {
 }
 
 class Level
-    new: (filepath) =>
+    new: (filepath, world) =>
+        @world = world
         contents, size = love.filesystem.read filepath
 
         @entities = {}
@@ -77,7 +76,7 @@ class Level
                 tile = TILE_MAPPING[tileId] x * 8, y * 8
                 table.insert tileRow, tile
 
-                tile\addToWorld WORLD
+                tile\addToWorld @world
 
                 x += 1
 
@@ -87,7 +86,7 @@ class Level
     addEntity: (e) =>
         table.insert @entities, e
         e\enteredLevel self
-        e\addToWorld WORLD
+        e\addToWorld @world
 
     playerStart: =>
         @playerStartPos.x * 8, @playerStartPos.y * 8
@@ -122,6 +121,7 @@ class Entity
 
     addToWorld: (world) =>
         world\add self, @x, @y, @w, @h
+        @world = world
 
     tick: =>
         @onTick!
@@ -147,7 +147,7 @@ class Entity
     move: (dx, dy) =>
         tx = dx + @x
         ty = dy + @y
-        ax, ay, cols, len = WORLD\move self, tx, ty
+        ax, ay, cols, len = @world\move self, tx, ty
 
         @x = ax
         @y = ay
@@ -219,6 +219,7 @@ class State
     new: (input) =>
         @input = input
         @accumulator = 0
+        @world = bump.newWorld!
         
         sprites = love.graphics.newImage "assets/sprites.png"
         @sprites = sprites
@@ -227,7 +228,7 @@ class State
         spriteBatch = love.graphics.newSpriteBatch sprites, 1000
         @gfx = Gfx quads, spriteBatch
 
-        @level = Level "assets/level1.csv"
+        @level = Level "assets/level1.csv", @world
         @level\addEntity (Player @input)
 
     update: (dt) =>
