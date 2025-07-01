@@ -1,6 +1,10 @@
+bump = require("lib.bump")
+
 WIDTH = 200
 HEIGHT = 160
 SCALE = 4
+
+WORLD = bump.newWorld!
 
 class Input
     new: =>
@@ -34,13 +38,19 @@ class Tile
         if @spr
             gfx\spr @spr, @x, @y
 
+    addToWorld: (world) =>
+        world\add self, @x, @y, 8, 8
+
 
 class Air extends Tile
     new: (x, y) =>
         super x, y, false
 
+    addToWorld: (world) =>
+        -- Air tiles can't be added to the world.
 
-    class Bricks extends Tile
+
+class Bricks extends Tile
     new: (x, y) =>
         super x, y, true, 34
 
@@ -67,6 +77,8 @@ class Level
                 tile = TILE_MAPPING[tileId] x * 8, y * 8
                 table.insert tileRow, tile
 
+                tile\addToWorld WORLD
+
                 x += 1
 
             table.insert @tiles, tileRow
@@ -75,6 +87,7 @@ class Level
     addEntity: (e) =>
         table.insert @entities, e
         e\enteredLevel self
+        e\addToWorld WORLD
 
     playerStart: =>
         @playerStartPos.x * 8, @playerStartPos.y * 8
@@ -102,66 +115,46 @@ class Entity
         @w = w
         @h = h
         @jumping = false
+        @applyGravity = true
 
     enteredLevel: (level) =>
         @level = level
 
+    addToWorld: (world) =>
+        world\add self, @x, @y, @w, @h
+
     tick: =>
         @onTick!
-        @gravity!
+        @gravity! if @applyGravity and not @jumping
 
     gravity: =>
-        @move 0, 1 if not @jumping
+        return if @jumping
+        
+        ax, ay = @move 0, 1
+        if ax == @x and ay == @y
+            @onGround = true
+        else
+            false
 
-    onGround: =>
-        expectedGroundY = @y + h + 1
-        for x=0,w-1
+    checkOnGround: =>
+        expectedGroundY = @y + @h + 1
+        for x=0,@w-1
             tile = @level\tileAt @x, @y
+            return true if tile.solid
+
+        false
 
     move: (dx, dy) =>
-        moved = false
+        tx = dx + @x
+        ty = dy + @y
+        ax, ay, cols, len = WORLD\move self, tx, ty
 
-        if dx != 0
-            goalX = @x + dx
-            signX, xCheckOffset = if dx > 0 then 1, @w - 1 else -1, 0
-            while @x != goalX
-                canMove = true
-                destX = @x + signX
-                for h = 0, @h - 1
-                    tile = @level\tileAt destX + xCheckOffset, @y + h
-                    
-                    if tile and tile.solid
-                        canMove = false
-                        break
-
-                if canMove then
-                    @x = destX
-                    moved = true
-                else 
-                    break
-
-        if dy != 0
-            goalY = @y + dy
-            signY, yCheckOffset = if dy > 0 then 1, @h - 1 else -1, 0
-            while @y != goalY
-                canMove = true
-                destY = @y + signY
-                for w = 0, @w - 1
-                    tile = @level\tileAt @x + w, destY + yCheckOffset
-                    
-                    if tile and tile.solid
-                        canMove = false
-                        break
-
-                if canMove then
-                    @y = destY
-                    moved = true
-                else 
-                    break
-
-        movedb
+        @x = ax
+        @y = ay
 
 class Player extends Entity
+    @jumpSpeeds: {-2, -2, -2, -1, -1, -1, 0, 1, 1, 1, 2, 2, 2}
+
     new: (input) =>
         super 32, 32, 4, 12
         @input = input
@@ -173,14 +166,30 @@ class Player extends Entity
         @x, @y = level\playerStart!
 
     onTick: =>
+        @moveJump! if @jumping
+
         if @input\isDown "right"
             @move 1, 0
         elseif @input\isDown "left"
             @move -1, 0
 
+        if @onGround
+            if @input\isDown "space"
+                @jump!
+            else
+                @jumping = false
+
     draw: (gfx) =>
         gfx\spr 65, @x - 2, @y - 4
         gfx\spr 97, @x - 2, @y + 4
+
+    jump: =>
+        @jumpFrame = 1
+        @jumping = true
+
+    moveJump: =>
+        @move 0, @@jumpSpeeds[@jumpFrame]
+        @jumpFrame += 1 if @jumpFrame < #@@jumpSpeeds
 
 
 Quads = (img, cs) -> -- cs= cellSize
