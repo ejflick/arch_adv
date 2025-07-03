@@ -125,7 +125,7 @@ class Entity
 
     tick: =>
         @onTick!
-        @gravity! if @applyGravity and not @jumping
+        @gravity! if @applyGravity
 
     gravity: =>
         return if @jumping
@@ -133,16 +133,9 @@ class Entity
         bx, by = @x, @y
         @move 0, 1
 
-        if @x == bx and @y == by
-            @onGround = true
-
     checkOnGround: =>
-        expectedGroundY = @y + @h + 1
-        for x=0,@w-1
-            tile = @level\tileAt @x, @y
-            return true if tile.solid
-
-        false
+        ax, ay = @world\check self, @x, @y + 1
+        ax == @x and ay == @y
 
     move: (dx, dy) =>
         tx = dx + @x
@@ -151,6 +144,11 @@ class Entity
 
         @x = ax
         @y = ay
+
+        for collision in *cols
+            return true if collision.normal.y > 0
+
+deferredRenders = {}
 
 class Player extends Entity
     @jumpSpeeds: {-2, -2, -2, -1, -1, -1, 0, 1, 1, 1, 2, 2, 2}
@@ -166,18 +164,15 @@ class Player extends Entity
         @x, @y = level\playerStart!
 
     onTick: =>
-        @moveJump! if @jumping
+        @doJump! if @jumping
 
         if @input\isDown "right"
             @move 1, 0
         elseif @input\isDown "left"
             @move -1, 0
 
-        if @onGround
-            if @input\isDown "space"
-                @jump!
-            else
-                @jumping = false
+        if not @jumping and @input\isDown "space"
+            @jump!
 
     draw: (gfx) =>
         gfx\spr 65, @x - 2, @y - 4
@@ -187,10 +182,16 @@ class Player extends Entity
         @jumpFrame = 1
         @jumping = true
 
-    moveJump: =>
-        @move 0, @@jumpSpeeds[@jumpFrame]
-        @jumpFrame += 1 if @jumpFrame < #@@jumpSpeeds
+    doJump: =>
+        bx, by = @x, @y
+        bonked = @move 0, @@jumpSpeeds[math.min(@jumpFrame, #@@jumpSpeeds)]
 
+        if bonked
+            @jumpFrame = 8
+        else
+            @jumpFrame += 1
+
+        @jumping = not @checkOnGround!
 
 Quads = (img, cs) -> -- cs= cellSize
     iw, ih = img\getDimensions!
@@ -254,7 +255,11 @@ class State
 
         @gfx\endDraw!
 
+        f! for f in *deferredRenders
+
         love.graphics.pop!
+
+        deferredRenders = {}
 
 input = Input!
 state = State input
