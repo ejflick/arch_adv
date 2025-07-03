@@ -1,4 +1,4 @@
-bump = require("lib.bump")
+bump = require "lib.bump"
 
 WIDTH = 200
 HEIGHT = 160
@@ -150,6 +150,10 @@ class Entity
 
 deferredRenders = {}
 
+pingPong = (val) ->
+    return 1 if val == 0
+    0
+
 class Player extends Entity
     @jumpSpeeds: {-2, -2, -2, -1, -1, -1, 0, 1, 1, 1, 2, 2, 2}
 
@@ -158,6 +162,10 @@ class Player extends Entity
         @input = input
         @jumpFrame = 1
         @jumping = false
+        @moveFrame = 1
+        @animFrame = 0
+        @animOffset = 0
+        @facing = 1 -- 1 = right, 0 = left
 
     enteredLevel: (level) =>
         super level
@@ -167,16 +175,36 @@ class Player extends Entity
         @doJump! if @jumping
 
         if @input\isDown "right"
-            @move 1, 0
+            @moveFrame += 1
+            @animOffset = 1
+            @move 1.5, 0
+            @facing = 1
         elseif @input\isDown "left"
-            @move -1, 0
+            @moveFrame += 1
+            @animOffset = 1
+            @move -1.5, 0
+            @facing = 0
+        else
+            @moveFrame = 0
+            @animFrame = 0
+            @animOffset = 0
 
         if not @jumping and @input\isDown "space"
             @jump!
 
+        if @moveFrame > 0 and @moveFrame % 6 == 0
+            @animFrame = pingPong @animFrame
+
     draw: (gfx) =>
-        gfx\spr 65, @x - 2, @y - 4
-        gfx\spr 97, @x - 2, @y + 4
+        --@spriteBatch\add @quads[idx], x, y, r, sx, sy, ox, oy, kx, ky 
+        sx = 1
+        ox = 0
+
+        if @facing == 0
+            sx = -1
+            ox = @w * 2
+        gfx\spr 65 + @animFrame + @animOffset, @x - 2, @y - 4, 0, sx, 1, ox
+        gfx\spr 97 + @animFrame + @animOffset, @x - 2, @y + 4, 0, sx, 1, ox
 
     jump: =>
         @jumpFrame = 1
